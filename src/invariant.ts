@@ -1,7 +1,7 @@
 import type {} from '@deepseek-ai/dsh-invariants'
 import type { Context } from '@deepseek-ai/cordis'
 
-const PACKAGE_NAME = '@deepseek-ai/dsh-web-search-synthetic'
+const PACKAGE_NAME = '@auggieteo/dsh-synthetic-web-search'
 
 /** Cordis plugin name for the package's invariant companion. */
 export const name = 'web-search-synthetic-invariant'

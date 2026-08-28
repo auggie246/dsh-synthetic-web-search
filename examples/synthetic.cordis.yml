@@ -1,7 +1,7 @@
 # Host-plane row: it registers a provider into the process-wide `web` service.
 # Install the package into the target profile before adding this row.
 - id: web-search-synthetic
-  name: '@deepseek-ai/dsh-web-search-synthetic'
+  name: '@auggieteo/dsh-synthetic-web-search'
   config:
     # The Settings card stores its key under this DSH credential reference.
     # apiKeyEnv: SYNTHETIC_API_KEY
