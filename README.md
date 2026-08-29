@@ -12,7 +12,7 @@ This is a **host-plane** plugin: it registers the `synthetic` provider into the 
 
 ## Install
 
-Install the package as a dependency of the profile that hosts `web` (normally `web`). Choose one route.
+Install the package as a profile layer in the profile that hosts `web` (normally `web`). The layer activates the provider row automatically. Choose one route.
 
 ### npm registry
 
@@ -42,22 +42,11 @@ Then rerun the same `dsh plugin --profile web add git+https://…` command. Do n
 
 ### Activate the provider
 
-Add this top-level `insert` block to `$DSH_HOME/profiles/web/cordis.patch.yml` (create the file with this YAML array if it does not exist):
+The install command adds this package to `dsh.profile.bundles`. Its bundled `cordis.patch.yml` inserts the `web-search-synthetic` row.
 
-```yaml
-- insert:
-    - id: web-search-synthetic
-      name: '@auggieteo/dsh-synthetic-web-search'
-      config:
-        # Settings stores the key using this DSH credential reference.
-        apiKeyEnv: SYNTHETIC_API_KEY
-        # Optional; defaults to https://api.synthetic.new.
-        # baseURL: https://api.synthetic.new
-```
+The row belongs in the **web host profile**, not an agent preset: `ctx.web` is process-wide and each provider must register once. [`examples/synthetic.cordis.yml`](examples/synthetic.cordis.yml) shows the equivalent manual row.
 
-The row belongs in the **web host profile**, not an agent preset: `ctx.web` is process-wide and each provider must register once. The same example is in [`examples/synthetic.cordis.yml`](examples/synthetic.cordis.yml).
-
-Restart the DSH web profile after changing its composition. Do not start a separate Vite server; it does not update an existing DSH GUI.
+Restart the DSH web profile after installation. Do not start a separate Vite server; it does not update an existing DSH GUI.
 
 ## Configure credentials and provider selection
 
@@ -88,19 +77,18 @@ Provider selection is intentionally unambiguous. The existing `@deepseek-ai/dsh-
 
 ## Uninstall
 
-1. Remove the `web-search-synthetic` row from `$DSH_HOME/profiles/web/cordis.patch.yml`.
-2. Remove the dependency:
+1. Remove the profile layer:
 
    ```bash
    dsh plugin --profile web remove @auggieteo/dsh-synthetic-web-search
    ```
 
-3. Restart the DSH web profile.
-4. If no other configuration uses it, remove `SYNTHETIC_API_KEY` from the process environment and remove the stored credential through your normal DSH credentials management.
+2. Restart the DSH web profile.
+3. If no other configuration uses it, remove `SYNTHETIC_API_KEY` from the process environment and remove the stored credential through your normal DSH credentials management.
 
 ## Compatibility
 
-The public package name is `@auggieteo/dsh-synthetic-web-search`, replacing the former local `@deepseek-ai/dsh-web-search-synthetic` reference. Only the package reference changes. The Cordis row id (`web-search-synthetic`), Settings namespace (`web-search-synthetic`), and default credential reference (`SYNTHETIC_API_KEY`) remain unchanged, so existing persisted plugin settings and credentials continue to apply after the row is updated.
+The public package name is `@auggieteo/dsh-synthetic-web-search`, replacing the former local `@deepseek-ai/dsh-web-search-synthetic` reference. The browser client registers both package ids, so legacy profile rows continue to load during migration. The Cordis row id (`web-search-synthetic`), Settings namespace (`web-search-synthetic`), and default credential reference (`SYNTHETIC_API_KEY`) remain unchanged, so existing persisted plugin settings and credentials continue to apply after the row is updated.
 
 ## Development and verification
 

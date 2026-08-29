@@ -1,0 +1,9 @@
+# Add the Synthetic provider to the process-wide web service.
+- insert:
+    - id: web-search-synthetic
+      name: '@auggieteo/dsh-synthetic-web-search'
+      config:
+        # Settings stores the key using this DSH credential reference.
+        apiKeyEnv: SYNTHETIC_API_KEY
+        # Optional; defaults to https://api.synthetic.new.
+        # baseURL: https://api.synthetic.new
