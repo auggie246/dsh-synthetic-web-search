@@ -22,7 +22,7 @@ dsh plugin --profile web add @auggieteo/dsh-synthetic-web-search
 
 ### Public Git URL
 
-After the public repository exists, install directly from Git:
+Install directly from the public Git repository:
 
 ```bash
 dsh plugin --profile web add git+https://github.com/auggie246/dsh-synthetic-web-search.git
@@ -101,6 +101,8 @@ npm run verify
 
 `npm run verify` cleans generated output, type-checks, runs mocked provider tests, builds `lib/` from source (including the browser client bundle), and checks the npm package contents with `npm pack --dry-run`.
 
+Releases are automated. Publish a GitHub release tagged `v<version>`, where `<version>` matches `package.json`. The publish workflow installs with `npm ci`, checks the tag, tests, builds, and publishes to npm. A prerelease publishes under the npm dist-tag `next`. A stable release publishes under `latest`.
+
 To test a local checkout without touching another profile, point a throwaway profile at its absolute path:
 
 ```bash
@@ -114,7 +116,9 @@ The provider sends the documented request:
 ```http
 POST https://api.synthetic.new/v2/search
 Authorization: Bearer $SYNTHETIC_API_KEY
+Accept: application/json
 Content-Type: application/json
+User-Agent: deepseek-harness-synthetic/0.1.0
 
 { "query": "…" }
 ```
@@ -128,6 +132,6 @@ It maps valid results into the Harness source vocabulary:
 | `text` | `snippet` |
 | `published` | `publishedAt` |
 
-Malformed or non-URL entries are ignored. The provider does not create a generated answer (`content`) and returns `truncated: false`; the `ctx.web` seam applies the caller's `maxResults` cap. Network, redirect, HTTP, and response-shape failures surface as `WEB_PROVIDER_ERROR`; aborted requests surface as `WEB_ABORTED`.
+Malformed or non-URL entries are ignored. The provider does not create a generated answer (`content`) and returns `truncated: false`; the `ctx.web` seam applies the caller's `maxResults` cap. Network, redirect, HTTP, and response-shape failures surface as `WEB_PROVIDER_ERROR`; a missing API key surfaces as `WEB_PROVIDER_CREDENTIAL_MISSING`; aborted requests surface as `WEB_ABORTED`.
 
 Synthetic's documented API currently exposes only `query`, so `maxResults` is intentionally not sent upstream.
