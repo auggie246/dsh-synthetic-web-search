@@ -42,7 +42,7 @@ Then rerun the same `dsh plugin --profile web add git+https://…` command. Do n
 
 ### Activate the provider
 
-The install command adds this package to `dsh.profile.bundles`. Its bundled `cordis.patch.yml` inserts the `web-search-synthetic` row.
+The install command adds this package to `dsh.profile.bundles`. Its bundled `cordis.patch.yml` inserts the `synthetic-web-search` row — the same id the manual rows above use.
 
 The row belongs in the **web host profile**, not an agent preset: `ctx.web` is process-wide and each provider must register once. [`examples/synthetic.cordis.yml`](examples/synthetic.cordis.yml) shows the equivalent manual row.
 
@@ -88,7 +88,9 @@ Provider selection is intentionally unambiguous. The existing `@deepseek-ai/dsh-
 
 ## Compatibility
 
-The public package name is `@auggieteo/dsh-synthetic-web-search`, replacing the former local `@deepseek-ai/dsh-web-search-synthetic` reference. The browser client registers both package ids, so legacy profile rows continue to load during migration. The Cordis row id (`web-search-synthetic`), Settings namespace (`web-search-synthetic`), and default credential reference (`SYNTHETIC_API_KEY`) remain unchanged, so existing persisted plugin settings and credentials continue to apply after the row is updated.
+The public package name is `@auggieteo/dsh-synthetic-web-search`, replacing the former local `@deepseek-ai/dsh-web-search-synthetic` reference. The browser client registers both package ids, so legacy profile rows continue to load during migration. The bundle row id (`synthetic-web-search`) matches the id existing manual profile rows already use, so the plugin mounts once. The Settings namespace (`web-search-synthetic`) and default credential reference (`SYNTHETIC_API_KEY`) remain unchanged, so existing persisted plugin settings and credentials continue to apply after the row is updated.
+
+0.2.1 shipped a bundle row with id `web-search-synthetic`. If you installed 0.2.1 as a bundle and kept a manual `- insert:` block, the plugin mounted twice. Upgrade to 0.2.2 or newer, which aligns the bundle row id with the manual row id, then keep only one mount.
 
 ## Development and verification
 
