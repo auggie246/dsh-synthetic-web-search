@@ -1,10 +1,15 @@
 # Host-plane row: it registers a provider into the process-wide `web` service.
 # Install the package into the target profile before adding this row.
 # `dsh plugin --profile web add @auggieteo/dsh-synthetic-web-search` mounts
-# this row through the shipped bundle; this file is the manual equivalent.
+# these rows through the shipped bundle; this file is the manual equivalent.
 - id: synthetic-web-search
   name: '@auggieteo/dsh-synthetic-web-search'
   config:
     # The Settings card stores its key under this DSH credential reference.
     # apiKeyEnv: SYNTHETIC_API_KEY
     # baseURL: https://api.synthetic.new
+
++# Overrides DSH's shipped deepseek-official selection.
+- id: web
+  config:
+    searchProvider: synthetic

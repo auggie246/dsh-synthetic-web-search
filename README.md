@@ -42,13 +42,19 @@ Then rerun the same `dsh plugin --profile web add git+https://…` command. Do n
 
 ### Activate the provider
 
-The install command adds this package to `dsh.profile.bundles`. Its bundled `cordis.patch.yml` inserts the `synthetic-web-search` row — the same id the manual rows above use.
+The install command adds this package to `dsh.profile.bundles`. Its bundled `cordis.patch.yml` inserts the `synthetic-web-search` row **and selects `synthetic` as the `web` search provider**, replacing DSH's shipped `deepseek-official` selection. No `DSH_WEB_SEARCH_PROVIDER` environment variable is needed.
 
-The row belongs in the **web host profile**, not an agent preset: `ctx.web` is process-wide and each provider must register once. [`examples/synthetic.cordis.yml`](examples/synthetic.cordis.yml) shows the equivalent manual row.
+The row belongs in the **web host profile**, not an agent preset: `ctx.web` is process-wide and each provider must register once. [`examples/synthetic.cordis.yml`](examples/synthetic.cordis.yml) shows the provider row; add the following selection override when mounting it manually:
+
+```yaml
+- id: web
+  config:
+    searchProvider: synthetic
+```
 
 Restart the DSH web profile after installation. Do not start a separate Vite server; it does not update an existing DSH GUI.
 
-## Configure credentials and provider selection
+## Configure credentials
 
 Open **Settings → Plugins → Plugin configuration → Synthetic web search**, enter the API key, and select **Save**. DSH stores it in its credentials domain and does not return it to the browser after saving.
 
@@ -58,14 +64,7 @@ For headless use, the plugin also reads the launch environment reference (by def
 export SYNTHETIC_API_KEY='…'
 ```
 
-When another usable search provider is installed, explicitly select Synthetic before launching DSH:
-
-```bash
-export DSH_WEB_SEARCH_PROVIDER=synthetic
-dsh web
-```
-
-Provider selection is intentionally unambiguous. The existing `@deepseek-ai/dsh-tool-web` agent-preset row exposes `web_search` to the model.
+Provider selection is intentionally unambiguous: installation pins `web.config.searchProvider` to `synthetic`. To use another provider later, apply a higher-precedence profile or `--patch` override with that provider's id. The existing `@deepseek-ai/dsh-tool-web` agent-preset row exposes `web_search` to the model.
 
 ### Configuration
 

@@ -1,6 +1,6 @@
 {
   "name": "@auggieteo/dsh-synthetic-web-search",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Synthetic-backed search provider and Settings card for the DeepSeek Harness web capability seam (ctx.web)",
   "license": "MIT",
   "publishConfig": {

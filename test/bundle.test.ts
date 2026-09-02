@@ -19,6 +19,8 @@ interface InsertRow {
 }
 
 interface PatchEntry {
+  id?: string
+  config?: unknown
   insert?: InsertRow[]
 }
 
@@ -36,12 +38,12 @@ test('declares and publishes its DSH profile layer', async () => {
   await access(new URL(`..${patch.slice(1)}`, import.meta.url))
 })
 
-test('bundle patch inserts exactly one host row without config overrides', async () => {
+test('bundle patch mounts Synthetic and selects it as the web search provider', async () => {
   const source = await readFile(new URL('../cordis.patch.yml', import.meta.url), 'utf8')
   const entries = load(source) as PatchEntry[]
 
   assert.ok(Array.isArray(entries))
-  assert.equal(entries.length, 1)
+  assert.equal(entries.length, 2)
 
   const rows = entries[0]?.insert
   assert.ok(Array.isArray(rows))
@@ -52,6 +54,10 @@ test('bundle patch inserts exactly one host row without config overrides', async
   assert.equal(row.id, PROFILE_ROW_ID)
   // The name must equal the dependency key the profile resolves.
   assert.equal(row.name, PACKAGE_NAME)
-  // Config overrides belong to the user's profile layer, not the shipped bundle.
   assert.equal(row.config, undefined)
+
+  // The bundled layer follows DSH's base layer and replaces its
+  // `deepseek-official` provider selection during installation.
+  assert.equal(entries[1]?.id, 'web')
+  assert.deepEqual(entries[1]?.config, { searchProvider: 'synthetic' })
 })
