@@ -9,7 +9,7 @@
     # apiKeyEnv: SYNTHETIC_API_KEY
     # baseURL: https://api.synthetic.new
 
-+# Overrides DSH's shipped deepseek-official selection.
+# Overrides DSH's shipped deepseek-official selection.
 - id: web
   config:
     searchProvider: synthetic

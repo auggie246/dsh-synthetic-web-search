@@ -61,3 +61,13 @@ test('bundle patch mounts Synthetic and selects it as the web search provider', 
   assert.equal(entries[1]?.id, 'web')
   assert.deepEqual(entries[1]?.config, { searchProvider: 'synthetic' })
 })
+
+test('example composition file parses and mounts Synthetic', async () => {
+  const source = await readFile(new URL('../examples/synthetic.cordis.yml', import.meta.url), 'utf8')
+  const entries = load(source) as PatchEntry[]
+
+  assert.ok(Array.isArray(entries))
+  assert.equal(entries[0]?.id, PROFILE_ROW_ID)
+  assert.equal(entries[0]?.name, PACKAGE_NAME)
+  assert.deepEqual(entries[1], { id: 'web', config: { searchProvider: 'synthetic' } })
+})

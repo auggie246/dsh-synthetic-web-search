@@ -6,7 +6,7 @@ This is a **host-plane** plugin: it registers the `synthetic` provider into the 
 
 ## Requirements
 
-- DeepSeek Harness with the `web` profile.
+- DeepSeek Harness 0.1.1-rc.2 or 0.1.2-rc.1 with the `web` profile.
 - Node.js 22.12 or newer.
 - A [Synthetic API key](https://dev.synthetic.new/docs/synthetic/search).
 
@@ -86,6 +86,14 @@ Provider selection is intentionally unambiguous: installation pins `web.config.s
 3. If no other configuration uses it, remove `SYNTHETIC_API_KEY` from the process environment and remove the stored credential through your normal DSH credentials management.
 
 ## Compatibility
+
+0.2.5 supports DeepSeek Harness **0.1.1-rc.2 and 0.1.2-rc.1** with runtime detection — one build, no per-version install. The plugin reads the settings seam's module shape at load time, so the same `lib/` activates on either version:
+
+- **Settings section.** 0.1.1-rc.2 wires optional settings through the free `installSettingsSection`/`settingsNamespace` pair; 0.1.2-rc.1 moved that wiring to the `SettingsProvider.installSection` method and validates the namespace as a plain string. The plugin imports the module by namespace and calls whichever shape it finds; both paths share identical semantics (composition entry as base layer and fallback).
+- **Settings card wire face.** 0.1.2-rc.1 moved the typed API client from `ctx.connection.api` to the `ctx.remote` service (positional arguments, `{ ok, value }` envelope). The card resolves the credentials face per call: `ctx.remote.credentials` first, then the legacy `ctx.connection.api` face with its `{ refs }` payloads and `{ result }` envelope.
+- **Card styles.** The upstream Settings Plugins cards hash their CSS-module class names from file contents, and 0.1.2-rc.1 restyles those files. The card therefore ships its own stylesheet (`synws-*` classes) instead of mirroring upstream hashed names, so it stays styled on both versions and follows its own release cadence.
+
+Everything else the plugin touches — the `ctx.web` seam and `registerSearchProvider`, `WebError` codes, `credentialRef`/credential resolution, the launch environment reference, invariants, schemastery `role()`s, the `dsh.bundle.patch` profile-layer mechanism with its `- insert:` op, the `dsh.client` manifest block, `window.__ModuleLoader__`, the `settingsScope` bind/snapshot contract, the `settings.plugin.item` slot — is unchanged between the two versions and needs no adaptation.
 
 The public package name is `@auggieteo/dsh-synthetic-web-search`, replacing the former local `@deepseek-ai/dsh-web-search-synthetic` reference. The browser client registers both package ids, so legacy profile rows continue to load during migration. The bundle row id (`synthetic-web-search`) matches the id existing manual profile rows already use, so the plugin mounts once. The Settings namespace (`web-search-synthetic`) and default credential reference (`SYNTHETIC_API_KEY`) remain unchanged, so existing persisted plugin settings and credentials continue to apply after the row is updated.
 
