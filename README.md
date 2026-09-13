@@ -138,7 +138,7 @@ Synthetic's documented API currently exposes only `query`, so `maxResults` is in
 
 ## Compatibility
 
-0.3.2 supports DeepSeek Harness **0.1.1-rc.2, 0.1.2-rc.1, and 0.1.5-rc.2** with runtime detection — one build, no per-version install. The plugin reads the settings seam's module shape at load time, so the same `lib/` activates on every supported version:
+0.4.0 supports DeepSeek Harness **0.1.1-rc.2, 0.1.2-rc.1, and 0.1.5-rc.2** with runtime detection — one build, no per-version install. The plugin reads the settings seam's module shape at load time, so the same `lib/` activates on every supported version:
 
 - **Settings section.** 0.1.1-rc.2 wires optional settings through the free `installSettingsSection`/`settingsNamespace` pair; 0.1.2-rc.1 moved that wiring to the `SettingsProvider.installSection` method and validates the namespace as a plain string. The plugin imports the module by namespace and calls whichever shape it finds; both paths share identical semantics (composition entry as base layer and fallback).
 - **Settings card wire face.** 0.1.2-rc.1 moved the typed API client from `ctx.connection.api` to the `ctx.remote` service (positional arguments, `{ ok, value }` envelope). The card resolves the credentials face per call: `ctx.remote.credentials` first, then the legacy `ctx.connection.api` face with its `{ refs }` payloads and `{ result }` envelope.
