@@ -5,7 +5,9 @@
 - id: synthetic-web-search
   name: '@auggieteo/dsh-synthetic-web-search'
   config:
-    # The Settings card stores its key under this DSH credential reference.
+    # The card stores its key under this DSH credential reference.
+    # On 0.1.7-rc.2 and later, `apiKeyEnv` and `baseURL` are also editable
+    # live on the sidebar Plugins page; these values are the base layer.
     # apiKeyEnv: SYNTHETIC_API_KEY
     # baseURL: https://api.synthetic.new
 

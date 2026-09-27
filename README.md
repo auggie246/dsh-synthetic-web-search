@@ -3,7 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/@auggieteo/dsh-synthetic-web-search.svg)](https://www.npmjs.com/package/@auggieteo/dsh-synthetic-web-search)
 [![license](https://img.shields.io/npm/l/@auggieteo/dsh-synthetic-web-search.svg)](./LICENSE)
 
-A [Synthetic Search](https://dev.synthetic.new/docs/synthetic/search)-backed `WebSearchProvider` and Settings card for the DeepSeek Harness `ctx.web` capability seam.
+A [Synthetic Search](https://dev.synthetic.new/docs/synthetic/search)-backed `WebSearchProvider` and configuration card for the DeepSeek Harness `ctx.web` capability seam.
 
 This is a **host-plane** plugin: it registers the `synthetic` provider into the Harness-owned `web` service. It does not provide `ctx.web` or a model-facing tool. Use it with the existing `@deepseek-ai/dsh-tool-web` row.
 
@@ -22,7 +22,7 @@ This is a **host-plane** plugin: it registers the `synthetic` provider into the 
 
 ## Background
 
-The Harness `web` seam keeps a registry of search providers and selects one at execution time. Deployments that point `web.config.searchProvider` at `synthetic` need a provider that talks to Synthetic's documented search API and maps its responses into the Harness source vocabulary. This package is that provider, plus the Settings card that stores its API key in the DSH credentials domain.
+The Harness `web` seam keeps a registry of search providers and selects one at execution time. Deployments that point `web.config.searchProvider` at `synthetic` need a provider that talks to Synthetic's documented search API and maps its responses into the Harness source vocabulary. This package is that provider, plus the configuration card that stores its API key in the DSH credentials domain.
 
 It works with the shipped `@deepseek-ai/dsh-tool-web` agent-preset row, which exposes `web_search` to the model through the same seam.
 
@@ -30,7 +30,7 @@ It works with the shipped `@deepseek-ai/dsh-tool-web` agent-preset row, which ex
 
 Requirements:
 
-- DeepSeek Harness 0.1.1-rc.2, 0.1.2-rc.1, or 0.1.5-rc.2 with the `web` profile.
+- DeepSeek Harness 0.1.1-rc.2, 0.1.2-rc.1, 0.1.5-rc.2, or 0.1.7-rc.2 with the `web` profile.
 - Node.js 22.12 or newer.
 - A [Synthetic API key](https://dev.synthetic.new/docs/synthetic/search).
 
@@ -94,7 +94,7 @@ Provider selection is intentionally unambiguous: installation pins `web.config.s
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `apiKey` | (unset) | Literal API key for non-interactive composition. Prefer the Settings card or environment reference; this secret is redacted from Settings responses. |
+| `apiKey` | (unset) | Literal API key for non-interactive composition. Prefer the card or environment reference; this secret is redacted from Settings responses. |
 | `apiKeyEnv` | `SYNTHETIC_API_KEY` | Credential reference used by the Settings card and launch environment. |
 | `baseURL` | `https://api.synthetic.new` | Synthetic API origin; the provider appends `/v2/search`. |
 
@@ -138,15 +138,17 @@ Synthetic's documented API currently exposes only `query`, so `maxResults` is in
 
 ## Compatibility
 
-0.4.0 supports DeepSeek Harness **0.1.1-rc.2, 0.1.2-rc.1, and 0.1.5-rc.2** with runtime detection — one build, no per-version install. The plugin reads the settings seam's module shape at load time, so the same `lib/` activates on every supported version:
+0.5.0 supports DeepSeek Harness **0.1.1-rc.2, 0.1.2-rc.1, 0.1.5-rc.2, and 0.1.7-rc.2** with runtime detection — one build, no per-version install. The plugin reads the settings and card seams at load time, so the same `lib/` activates on every supported version:
 
-- **Settings section.** 0.1.1-rc.2 wires optional settings through the free `installSettingsSection`/`settingsNamespace` pair; 0.1.2-rc.1 moved that wiring to the `SettingsProvider.installSection` method and validates the namespace as a plain string. The plugin imports the module by namespace and calls whichever shape it finds; both paths share identical semantics (composition entry as base layer and fallback).
-- **Settings card wire face.** 0.1.2-rc.1 moved the typed API client from `ctx.connection.api` to the `ctx.remote` service (positional arguments, `{ ok, value }` envelope). The card resolves the credentials face per call: `ctx.remote.credentials` first, then the legacy `ctx.connection.api` face with its `{ refs }` payloads and `{ result }` envelope.
-- **Card styles.** The upstream Settings Plugins cards hash their CSS-module class names from file contents, and 0.1.2-rc.1 restyles those files. The card therefore ships its own stylesheet (`synws-*` classes) instead of mirroring upstream hashed names, so it stays styled on both versions and follows its own release cadence.
+- **Settings section (host).** 0.1.1-rc.2 wires optional settings through the free `installSettingsSection`/`settingsNamespace` pair; 0.1.2-rc.1 through 0.1.5-rc.2 move that wiring to the `SettingsProvider.installSection` method and validate the namespace as a plain string. The plugin imports the module by namespace and calls whichever shape it finds; both paths share identical semantics (composition entry as base layer and fallback).
+- **Configuration forms (host), 0.1.7-rc.2.** That release replaced namespace registration with `SettingsForms`: a plugin's editable configuration is derived from the Config fields it marks `.volatile()`, addressed by profile entry id, and a plugin that ships its own page declines the derived one. The plugin marks its three Config fields volatile through a version-guarded call (a no-op on the schemastery shipped before 0.1.7), reads the live field references the Loader delivers from that release on, and calls `ctx.settings.configure({ auto: false }, ctx.fiber)` instead of registering a section. The harness imports a legacy `settings.yaml` section into the entry of the same id, so the old namespace name (`web-search-synthetic`) does not match this plugin's row id (`synthetic-web-search`): a pre-0.1.7 profile that had overridden the endpoint re-enters it once on the Plugins page. The API key lives in the credentials domain and is unaffected.
+- **Configuration card (browser), 0.1.7-rc.2.** `ctx.settingsScope` and the `settings.plugin.item` slot are gone. The card registers into the sidebar Plugins page's `plugins.bundle.config` slot, keyed by package name, and reads and writes through `ctx.configForms`. Both card paths are shipped: the plugin detects `ctx.configForms` at apply time and falls back to the pre-0.1.7 scope card when it is absent.
+- **Credentials card wire face.** 0.1.2-rc.1 moved the typed API client from `ctx.connection.api` to the `ctx.remote` service (positional arguments, `{ ok, value }` envelope). The card resolves the credentials face per call: `ctx.remote.credentials` first, then the legacy `ctx.connection.api` face with its `{ refs }` payloads and `{ result }` envelope. This face is unchanged through 0.1.7-rc.2.
+- **Card styles.** The upstream surface cards hash their CSS-module class names from file contents, and 0.1.2-rc.1 restyles those files. The card therefore ships its own stylesheet (`synws-*` classes) instead of mirroring upstream hashed names, so it stays styled on every version and follows its own release cadence.
 
-Everything else the plugin touches — the `ctx.web` seam and `registerSearchProvider`, `WebError` codes, `credentialRef`/credential resolution, the launch environment reference, invariants, schemastery `role()`s, the `dsh.bundle.patch` profile-layer mechanism with its `- insert:` op, the `dsh.client` manifest block, `window.__ModuleLoader__`, the `settingsScope` bind/snapshot contract, the `settings.plugin.item` slot — is unchanged through 0.1.5-rc.2 and needs no adaptation. The 0.1.2-rc.1 to 0.1.5-rc.2 range changes none of these surfaces, so the 0.1.2-rc.1 detection paths cover it with no new adaptation.
+Everything else the plugin touches — the `ctx.web` seam and `registerSearchProvider`, `WebError` codes, `credentialRef`/credential resolution, the launch environment reference, invariants, schemastery `role()`s, the `dsh.bundle.patch` profile-layer mechanism with its `- insert:` op, the `dsh.client` manifest block, `window.__ModuleLoader__`, and the `dsh.client.inject` list (an id absent from a build's module graph is skipped, so the 0.1.7-only package is inert on older harnesses) — is unchanged through 0.1.7-rc.2 and needs no adaptation.
 
-The public package name is `@auggieteo/dsh-synthetic-web-search`, replacing the former local `@deepseek-ai/dsh-web-search-synthetic` reference. The browser client registers both package ids, so legacy profile rows continue to load during migration. The bundle row id (`synthetic-web-search`) matches the id existing manual profile rows already use, so the plugin mounts once. The Settings namespace (`web-search-synthetic`) and default credential reference (`SYNTHETIC_API_KEY`) remain unchanged, so existing persisted plugin settings and credentials continue to apply after the row is updated.
+The public package name is `@auggieteo/dsh-synthetic-web-search`, replacing the former local `@deepseek-ai/dsh-web-search-synthetic` reference. The browser client registers both package ids, so legacy profile rows continue to load during migration. The bundle row id (`synthetic-web-search`) matches the id existing manual profile rows already use, so the plugin mounts once. The credential domain reference (`SYNTHETIC_API_KEY`) and the pre-0.1.7 Settings namespace (`web-search-synthetic`) remain unchanged, so existing credentials and persisted settings continue to apply on the harness versions that read them.
 
 0.2.1 shipped a bundle row with id `web-search-synthetic`. If you installed 0.2.1 as a bundle and kept a manual `- insert:` block, the plugin mounted twice. Upgrade to 0.2.2 or newer, which aligns the bundle row id with the manual row id, then keep only one mount.
 

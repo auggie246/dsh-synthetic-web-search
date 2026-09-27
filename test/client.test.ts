@@ -40,6 +40,62 @@ async function loadClientModule(): Promise<{ ids: string[]; factories: Array<Loa
   return { ids, factories }
 }
 
+/**
+ * Minimal React shim: enough state, effects, and elements to mount the card and
+ * drive its controls. `beginRender` restarts the hook cursor exactly as React
+ * does between renders of one component instance; the state store survives, so
+ * an edit followed by a re-render is observable.
+ */
+function fakeReact() {
+  const state: unknown[] = []
+  let cursor = 0
+  return {
+    useState(initial: unknown) {
+      const index = cursor++
+      if (!(index in state)) state[index] = typeof initial === 'function' ? (initial as () => unknown)() : initial
+      return [
+        state[index],
+        (next: unknown) => {
+          state[index] = typeof next === 'function' ? (next as (prev: unknown) => unknown)(state[index]) : next
+        },
+      ] as const
+    },
+    useEffect(): void {},
+    createElement(type: unknown, props: Record<string, unknown> | null, ...children: unknown[]) {
+      return { type, props: { ...(props ?? {}), children } }
+    },
+    beginRender(): void {
+      cursor = 0
+    },
+  }
+}
+
+interface Element {
+  type: (props: Record<string, unknown>) => Element | null
+  props: Record<string, unknown> & { children?: unknown[] }
+}
+
+/** Mount the registered card and return the page view's inner form element. */
+function renderForm(React: ReturnType<typeof fakeReact>, Card: (props: Record<string, unknown>) => Element | null, form: unknown): Element {
+  const wrapper = Card({ view: 'page', form })
+  assert.ok(wrapper, 'the page view must render the form')
+  React.beginRender()
+  const tree = wrapper.type(wrapper.props)
+  assert.ok(tree, 'the form must render')
+  return tree
+}
+
+/** Every element whose props satisfy the predicate. */
+function findAll(node: unknown, predicate: (props: Record<string, unknown>) => boolean): Element[] {
+  if (node === null || typeof node !== 'object') return []
+  if (Array.isArray(node)) return node.flatMap((child) => findAll(child, predicate))
+  const element = node as Element
+  const hit = element.props !== undefined && predicate(element.props) ? [element] : []
+  return [...hit, ...findAll(element.props?.children ?? [], predicate)]
+}
+
+const BUNDLE_KEY = '@auggieteo/dsh-synthetic-web-search'
+
 test('registers the client factory for public and legacy graph row IDs', async () => {
   const { ids } = await loadClientModule()
 
@@ -55,7 +111,7 @@ test('client plugin declares the card on the settings.plugin.item slot', async (
   const plugin = factories[0]?.(() => ({}))
   assert.ok(plugin, 'factory returned no module')
 
-  assert.deepEqual(JSON.parse(JSON.stringify(plugin.inject)), ['slots', 'settingsScope', 'connection'])
+  assert.deepEqual(JSON.parse(JSON.stringify(plugin.inject)), ['slots', 'connection'])
 
   const calls: { injectName?: string; spec?: unknown; component?: unknown } = {}
   const boundSpecs: unknown[] = []
@@ -189,4 +245,219 @@ test('card styles are plugin-owned and independent of upstream CSS hashes', asyn
     /--dsw-alias-label-error,var\(--dsw-static-red-400/,
     'the error color needs a fallback because no shipped theme declares the alias',
   )
+})
+
+/** The 0.1.7 card over `ctx.configForms`, with a form fake recording every write. */
+function configFormsHarness() {
+  const React = fakeReact()
+  const mutateCalls: Array<{ ops: unknown; revision: unknown }> = []
+  const setCalls: unknown[] = []
+  const configureCalls: unknown[] = []
+  const registered: { slot?: string; spec?: unknown; component?: Element['type'] } = {}
+  const fiber = { id: 'plugin-fiber' }
+  let snapshot: Record<string, unknown> = {
+    status: 'ready',
+    value: { apiKeyEnv: 'SYNTHETIC_API_KEY', baseURL: '' },
+    revision: 7,
+    writable: true,
+  }
+  const form = {
+    getSnapshot: () => snapshot,
+    subscribe: () => () => {},
+    mutate: async (ops: unknown, revision: unknown) => {
+      mutateCalls.push({ ops, revision })
+      return true
+    },
+  }
+  const ctx = {
+    fiber,
+    get: (name: string) => {
+      if (name === 'configForms') return { get: () => form }
+      if (name === 'settings') {
+        return {
+          configure: (presentation: unknown, owner: unknown) => {
+            configureCalls.push({ presentation, owner })
+            return () => {}
+          },
+        }
+      }
+      if (name === 'remote') {
+        return {
+          credentials: {
+            describe: async () => ({ ok: true, value: { SYNTHETIC_API_KEY: { configured: false, writable: true } } }),
+            set: async (reference: string, value: string) => {
+              setCalls.push([reference, value])
+              return { ok: true }
+            },
+          },
+        }
+      }
+      return undefined
+    },
+    effect: (callback: () => unknown) => {
+      const dispose = callback()
+      return () => {
+        if (typeof dispose === 'function') dispose()
+      }
+    },
+    slots: {
+      inject: (name: string, callback: () => () => void) => {
+        registered.slot = name
+        return callback()
+      },
+      register: (spec: unknown, component: Element['type']) => {
+        registered.spec = spec
+        registered.component = component
+        return () => {}
+      },
+    },
+  }
+  return {
+    React, ctx, form, registered, mutateCalls, setCalls, configureCalls, fiber,
+    setSnapshot: (next: Record<string, unknown>) => { snapshot = next },
+  }
+}
+
+async function loadConfigFormsPlugin() {
+  const { factories } = await loadClientModule()
+  return factories[0]?.(() => ({})) as {
+    inject: string[]
+    apply: (ctx: unknown) => void
+    credentialsWire?: (ctx: unknown) => unknown
+  }
+}
+
+test('0.1.7: registers a bundle configuration card and declines the generated page', async () => {
+  const harness = configFormsHarness()
+  const { factories } = await loadClientModule()
+  const plugin = factories[0]?.((id: string) => (id === 'react' ? harness.React : {}))
+  assert.ok(plugin, 'factory returned no module')
+
+  plugin.apply(harness.ctx)
+
+  assert.equal(harness.registered.slot, 'plugins.bundle.config')
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(harness.registered.spec)),
+    { name: 'plugins.bundle.config', key: BUNDLE_KEY },
+  )
+  assert.equal(typeof harness.registered.component, 'function')
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(harness.configureCalls)),
+    [{ presentation: { auto: false }, owner: harness.fiber }],
+    'the shipped card owns the entry, so the settings-derived page must be declined',
+  )
+})
+
+test('0.1.7: a bundle card summary view renders nothing', async () => {
+  const harness = configFormsHarness()
+  const { factories } = await loadClientModule()
+  const plugin = factories[0]?.((id: string) => (id === 'react' ? harness.React : {}))
+  plugin?.apply(harness.ctx)
+
+  assert.equal(harness.registered.component?.({ view: 'summary', form: harness.form }), null)
+})
+
+test('0.1.7: saving writes changed fields with one mutate and the key through credentials', async () => {
+  const harness = configFormsHarness()
+  const { factories } = await loadClientModule()
+  const plugin = factories[0]?.((id: string) => (id === 'react' ? harness.React : {}))
+  plugin?.apply(harness.ctx)
+
+  const tree = renderForm(harness.React, harness.registered.component as Element['type'], harness.form)
+  const inputs = findAll(tree, (props) => props.className === 'synws-input')
+  const keyInput = inputs.find((element) => element.props.type === 'password')
+  const urlInput = inputs.find((element) => element.props.type === 'url')
+  assert.ok(keyInput && urlInput, 'the card renders a secret input and an endpoint input')
+
+  keyInput.props.onChange?.({ target: { value: 'sk-staged' } })
+  urlInput.props.onChange?.({ target: { value: 'https://example.test' } })
+
+  const rerendered = renderForm(harness.React, harness.registered.component as Element['type'], harness.form)
+  const save = findAll(rerendered, (props) => props.className === 'synws-save')[0]
+  assert.ok(save, 'the card renders a save control')
+  await (save.props.onClick as () => Promise<void>)()
+
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(harness.mutateCalls)),
+    [{ ops: [{ op: 'set', path: ['baseURL'], value: 'https://example.test' }], revision: 7 }],
+    'one mutate carries only the fields the user changed',
+  )
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(harness.setCalls)),
+    [['SYNTHETIC_API_KEY', 'sk-staged']],
+    'the staged key is written through the credentials domain, never through the settings form',
+  )
+})
+
+test('0.1.7: clearing an overridden field unsets it so it re-inherits the default', async () => {
+  const harness = configFormsHarness()
+  harness.setSnapshot({
+    status: 'ready',
+    value: { apiKeyEnv: 'SYNTHETIC_API_KEY', baseURL: 'https://old.test' },
+    revision: 9,
+    writable: true,
+  })
+  const { factories } = await loadClientModule()
+  const plugin = factories[0]?.((id: string) => (id === 'react' ? harness.React : {}))
+  plugin?.apply(harness.ctx)
+
+  const tree = renderForm(harness.React, harness.registered.component as Element['type'], harness.form)
+  const urlInput = findAll(tree, (props) => props.className === 'synws-input')
+    .find((element) => element.props.type === 'url')
+  urlInput?.props.onChange?.({ target: { value: '' } })
+
+  const rerendered = renderForm(harness.React, harness.registered.component as Element['type'], harness.form)
+  const save = findAll(rerendered, (props) => props.className === 'synws-save')[0]
+  await (save?.props.onClick as () => Promise<void>)()
+
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(harness.mutateCalls)),
+    [{ ops: [{ op: 'unset', path: ['baseURL'] }], revision: 9 }],
+  )
+})
+
+test('client plugin falls back to the pre-0.1.7 settings scope card when configForms is absent', async () => {
+  const { factories } = await loadClientModule()
+  const plugin = factories[0]?.(() => ({}))
+  assert.ok(plugin, 'factory returned no module')
+
+  const registered: { slot?: string; spec?: unknown } = {}
+  plugin.apply({
+    get: () => undefined,
+    connection: {},
+    effect: () => () => {},
+    slots: {
+      inject: (name: string, callback: () => () => void) => {
+        registered.slot = name
+        return callback()
+      },
+      register: (spec: unknown) => {
+        registered.spec = spec
+        return () => {}
+      },
+    },
+    settingsScope: { bind: () => ({ getSnapshot: () => ({}) }) },
+  })
+
+  assert.equal(registered.slot, 'settings.plugin.item')
+  assert.deepEqual(JSON.parse(JSON.stringify(registered.spec)), { name: 'settings.plugin.item', key: 'web-search-synthetic' })
+})
+
+test('client plugin stays inert when neither settings face is composed', async () => {
+  const { factories } = await loadClientModule()
+  const plugin = factories[0]?.(() => ({}))
+  let registered = false
+  plugin?.apply({
+    get: () => undefined,
+    connection: {},
+    effect: () => () => {},
+    slots: {
+      inject: () => () => {},
+      register: () => {
+        registered = true
+        return () => {}
+      },
+    },
+  })
+  assert.equal(registered, false)
 })
